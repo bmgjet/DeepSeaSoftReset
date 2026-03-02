@@ -16,7 +16,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-	[Info("DeepSeaSoftReset", "bmgjet", "1.0.0")]
+	[Info("DeepSeaSoftReset", "bmgjet", "1.0.1")]
 	public class DeepSeaSoftReset : RustPlugin
 	{
 		private Coroutine _coroutine;
@@ -90,8 +90,11 @@ namespace Oxide.Plugins
 			[JsonProperty("Deep Sea Wipe Duration (Duration in seconds of the deep sea even)")]
 			public int wipeduration { get; set; } = 10800;
 
-			[JsonProperty("Deep Sea Wipe Cooldown (Seconds before a deep sea re-opens after closing)")]
+			[JsonProperty("Deep Sea Wipe Cooldown Min (Seconds before a deep sea re-opens after closing)")]
 			public int wipecooldown { get; set; } = 5400;
+
+			[JsonProperty("Deep Sea Wipe Cooldown Max (Seconds before a deep sea re-opens after closing)")]
+			public int wipecoolmaxdown { get; set; } = 9000;
 
 			[JsonProperty("Duration In Seconds Of The Final Wipe Phase")]
 			public int wipeEndPhaseDuration { get; set; } = 5400;
@@ -99,8 +102,20 @@ namespace Oxide.Plugins
 			[JsonProperty("Seconds Before Radiation Starts To Ramp Up Before Deep Sea Wipe")]
 			public int wipeRadiationPhaseDuration { get; set; } = 5400;
 
+			[JsonProperty("Deep Sea Portal Distance From Edge")]
+			public int island_portal_terrain_distance { get; set; } = 750;
+
 			[JsonProperty("Should The Deep Sea Map Be Covered By Fog Of War")]
 			public bool deepseafogofwar { get; set; } = true;
+
+			[JsonProperty("Allow Swimming To Deep Sea")]
+			public bool allowswimming { get; set; } = true;
+
+			[JsonProperty("Allow All Vehicles To Travel To The Deep Sea Unless Blocked By Another Plugin")]
+			public bool allow_all_vehicles { get; set; } = false;
+
+			[JsonProperty("Open Deep Sea As Soon As Wiped")]
+			public bool openonserverwipe { get; set; } = false;
 		}
 
 		private class RespawnInfo
@@ -123,11 +138,11 @@ namespace Oxide.Plugins
 
 		void Init() { SetVars(); }
 
-		private void OnServerInitialized() { SetVars(); timer.Once(10f, () => { _coroutine = ServerMgr.Instance.StartCoroutine(_checker()); }); } //Startup
+		private void OnServerInitialized() { timer.Once(10f, () => { SetVars(); _coroutine = ServerMgr.Instance.StartCoroutine(_checker()); }); } //Startup
 
 		private void OnEntityKill(StorageContainer bn)
 		{
-			if (bn == null || bn?.OwnerID != 0 || !DeepSeaManager.IsInsideDeepSea(bn))
+			if (bn == null || bn?.OwnerID != 0 || !DeepSeaManager.IsInsideDeepSea(bn) || bn is SupplyDrop)
 				return;
 
 			if (bn?.GetParentEntity() is BaseBoat) { return; }
@@ -171,19 +186,23 @@ namespace Oxide.Plugins
 
 		private void SetVars()
 		{
-			Debug.LogWarning("Setting Deepsea Convars");
-			ConsoleSystem.Run(ConsoleSystem.Option.Server.Quiet(), $"deepsea.hackablecrate_count {config.hackablecrate_count}", System.Array.Empty<object>());
-			ConsoleSystem.Run(ConsoleSystem.Option.Server.Quiet(), $"deepsea.block_building {config.block_building}", System.Array.Empty<object>());
-			ConsoleSystem.Run(ConsoleSystem.Option.Server.Quiet(), $"deepsea.forceentranceportaldirection {config.block_building}", System.Array.Empty<object>());
-			ConsoleSystem.Run(ConsoleSystem.Option.Server.Quiet(), $"deepsea.floatingcity_count {config.floatingcity_count}", System.Array.Empty<object>());
-			ConsoleSystem.Run(ConsoleSystem.Option.Server.Quiet(), $"deepsea.island_count {config.island_count}", System.Array.Empty<object>());
-			ConsoleSystem.Run(ConsoleSystem.Option.Server.Quiet(), $"deepsea.ghostship_count {config.ghostship_count}", System.Array.Empty<object>());
-			ConsoleSystem.Run(ConsoleSystem.Option.Server.Quiet(), $"deepsea.rhib_count {config.rhib_count}", System.Array.Empty<object>());
-			ConsoleSystem.Run(ConsoleSystem.Option.Server.Quiet(), $"deepsea.wipeduration {config.wipeduration}", System.Array.Empty<object>());
-			ConsoleSystem.Run(ConsoleSystem.Option.Server.Quiet(), $"deepsea.wipecooldown {config.wipecooldown}", System.Array.Empty<object>());
-			ConsoleSystem.Run(ConsoleSystem.Option.Server.Quiet(), $"deepsea.deepseafogofwar {config.deepseafogofwar}", System.Array.Empty<object>());
-			ConsoleSystem.Run(ConsoleSystem.Option.Server.Quiet(), $"deepsea.wipeEndPhaseDuration {config.wipeEndPhaseDuration}", System.Array.Empty<object>());
-			ConsoleSystem.Run(ConsoleSystem.Option.Server.Quiet(), $"deepsea.wipeRadiationPhaseDuration {config.wipeRadiationPhaseDuration}", System.Array.Empty<object>());
+			ConVar.DeepSea.hackablecrate_count = config.hackablecrate_count;
+			ConVar.DeepSea.block_building = config.block_building;
+			ConVar.DeepSea.forceEntrancePortalDirection = config.forceentranceportaldirection;
+			ConVar.DeepSea.floatingcity_count = config.floatingcity_count;
+			ConVar.DeepSea.island_count = config.island_count;
+			ConVar.DeepSea.ghostship_count = config.ghostship_count;
+			ConVar.DeepSea.rhib_count = config.rhib_count;
+			ConVar.DeepSea.wipeDuration = config.wipeduration;
+			ConVar.DeepSea.wipeCooldownMax = config.wipecoolmaxdown;
+			ConVar.DeepSea.wipeCooldownMin = config.wipecooldown;
+			ConVar.Server.deepSeaFogofwar = config.deepseafogofwar;
+			ConVar.DeepSea.wipeEndPhaseDuration = config.wipeEndPhaseDuration;
+			ConVar.DeepSea.wipeRadiationPhaseDuration = config.wipeRadiationPhaseDuration;
+			ConVar.DeepSea.allow_all_vehicles = config.allow_all_vehicles;
+			ConVar.DeepSea.allow_swimmers = config.allowswimming;
+			ConVar.DeepSea.openOnServerWipe = config.openonserverwipe;
+			ConVar.DeepSea.island_portal_terrain_distance = config.island_portal_terrain_distance;
 		}
 
 		private IEnumerator _reset()
